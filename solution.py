@@ -32,5 +32,5 @@ def solution(image, current_speed, current_steering):
     # ============================================
     # ÇÖZÜMÜNÜZÜ BURAYA YAZIN
     # ============================================
-
+    
     return target_speed, steering
