@@ -15,106 +15,121 @@ def update_leaderboard(score, user):
         
     # Check if Leaderboard section exists
     if "## Leaderboard" not in content:
-        content += "\n\n## Leaderboard\n| User | Time | Date |\n|---|---|---|\n"
+        content += "\n\n## Leaderboard\n| Rank | User | Time | Date |\n|---|---|---|---|\n"
         
-    # Parse existing leaderboard
-    # Find list of entries
-    # We want to keep unique users, only their best score? Or all scores?
-    # Let's keep best score per user for simplicity and cleanliness.
-    
-    # Simple regex to find the table rows
-    # Assuming standard markdown table format
-    # | User | Time | Date |
-    
     lines = content.splitlines()
     leaderboard_start = -1
-    leaderboard_end = -1
     
     for i, line in enumerate(lines):
         if "## Leaderboard" in line:
             leaderboard_start = i
-            # Skip header and separator
             break
             
     if leaderboard_start == -1:
-        # Should not happen given logic above, but safety
         return
 
     # Extract entries
     entries = []
     # format: {'user': str, 'time': float, 'date': str}
     
-    # Rows start after header (start + 2 usually)
+    # Rows start after header and separator (start + 2 usually)
     table_start = leaderboard_start + 3
     
-    # Read existing
-    # We might have content after table, so stop at next header or empty lines if strict
-    # For now assume table is at end or continuous
-    
-    for i in range(table_start, len(lines)):
+    table_end = table_start
+    while table_end < len(lines) and lines[table_end].strip().startswith('|'):
+        table_end += 1
+
+    # Read existing entries
+    for i in range(table_start, table_end):
         line = lines[i].strip()
-        if not line.startswith('|'): 
-            continue
         parts = [p.strip() for p in line.split('|') if p.strip()]
-        if len(parts) >= 3:
+        
+        # Handle both old format (3 columns) and new format (4 columns)
+        if len(parts) == 3: # Old: User | Time | Date
             u, t, d = parts[0], parts[1], parts[2]
-            try:
-                t_val = float(t.replace('s', ''))
-                entries.append({'user': u, 'time': t_val, 'date': d, 'original_line': line})
-            except ValueError:
-                pass
+        elif len(parts) >= 4: # New: Rank | User | Time | Date
+            u, t, d = parts[1], parts[2], parts[3]
+        else:
+            continue
+            
+        try:
+            t_val = float(t.replace('s', ''))
+            entries.append({'user': u, 'time': t_val, 'date': d})
+        except ValueError:
+            pass
                 
     # Update or Add
     current_time = float(score)
     date_str = datetime.now().strftime("%Y-%m-%d %H:%M")
     
     updated = False
+    new_entry_added = False
+    
+    # Find if user exists
+    user_exists = False
     for entry in entries:
         if entry['user'] == user:
+            user_exists = True
             if current_time < entry['time']:
                 entry['time'] = current_time
                 entry['date'] = date_str
                 updated = True
+                print(f"Updated Personal Best for {user}: {current_time}s")
             else:
-                # New score is worse, do nothing? Or maybe user wants to see attempt?
-                # Challenge usually demands Personal Best.
-                print(f"New score {current_time} is not better than best {entry['time']}. No update.")
-                return
+                print(f"Score {current_time}s is not better than existing {entry['time']}s for {user}.")
             break
             
-    if not updated and not any(e['user'] == user for e in entries):
+    if not user_exists:
         entries.append({'user': user, 'time': current_time, 'date': date_str})
         updated = True
+        new_entry_added = True
 
-    if not updated:
-        return
-
+    # Always rewrite table if format changed or new entry
+    # But strictly we only need if updated or if we want to enforces rank format
+    # Let's enforce rank format always
+    
     # Sort entries by time (asc)
     entries.sort(key=lambda x: x['time'])
     
-    # Reconstruct Table
+    # Reconstruct Table with Rank
     new_table_lines = []
-    for e in entries:
-        new_table_lines.append(f"| {e['user']} | {e['time']:.4f}s | {e['date']} |")
+    new_table_lines.append("| Rank | User | Time | Date |")
+    new_table_lines.append("|---|---|---|---|")
+    
+    for i, e in enumerate(entries):
+        rank = i + 1
+        # Add medal emojis for fun
+        if rank == 1:
+            rank_str = "🥇 1"
+        elif rank == 2:
+            rank_str = "🥈 2"
+        elif rank == 3:
+            rank_str = "🥉 3"
+        else:
+            rank_str = str(rank)
+            
+        new_table_lines.append(f"| {rank_str} | {e['user']} | {e['time']:.4f}s | {e['date']} |")
         
     # Reconstruct File Content
-    # We replace from table_start to the end of the table
-    # Finding end of table is tricky if there is content after.
-    # We will just replace all consecutive table lines starting from table_start
+    # We replace everything from header to end of table
+    # This overwrites the old header too
     
-    # But wait, lines list is static.
-    # Let's find where the table technically ends (next empty line or non-table line)
-    table_end = table_start
-    while table_end < len(lines) and lines[table_end].strip().startswith('|'):
-        table_end += 1
-        
-    # Rebuild
-    final_lines = lines[:table_start] + new_table_lines + lines[table_end:]
+    # Lines before Leaderboard header
+    pre_lines = lines[:leaderboard_start+1] 
+    
+    # Lines after table
+    post_lines = lines[table_end:]
+    
+    # We need to act carefully. The 'pre_lines' includes "## Leaderboard"
+    # Then we append our new table (header + body)
+    # Then post lines
+    
+    final_lines = pre_lines + new_table_lines + post_lines
     
     with open(README_FILE, 'w') as f:
         f.write("\n".join(final_lines))
         
-    print(f"Leaderboard updated for {user} with time {current_time}s")
+    print(f"Leaderboard updated for {user}.")
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
