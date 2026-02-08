@@ -63,6 +63,7 @@ jobs:
         echo "$SCORE" > artifacts/score.txt
         echo "${{ github.event.pull_request.user.login }}" > artifacts/user.txt
         echo "${{ github.event.pull_request.html_url }}" > artifacts/pr_url.txt
+        echo "${{ github.base_ref }}" > artifacts/branch.txt
 
     - name: Upload Score Artifact
       uses: actions/upload-artifact@v4
