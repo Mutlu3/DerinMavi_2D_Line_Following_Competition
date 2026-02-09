@@ -132,14 +132,4 @@ def update_leaderboard(score, user):
     print(f"Leaderboard updated for {user}.")
 
 if __name__ == "__main__":
-    if len(sys.argv) < 3:
-        print("Usage: python update_leaderboard.py <score> <user>")
-        sys.exit(1)
-    
-    try:
-        score = float(sys.argv[1])
-        user = sys.argv[2]
-        update_leaderboard(score, user)
-    except ValueError:
-        print("Invalid score format")
-        sys.exit(1)
+    print("Leaderboard will not be updated in the main")
